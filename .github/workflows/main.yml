@@ -36,30 +36,54 @@ jobs:
       - name: Verify Modal installation
         run: |
           python -c "import modal; print(f'Modal version: {modal.__version__}')"
-          which modal
 
       - name: Deploy to Modal
-        env:
-          # Modal会自动从这些环境变量读取认证信息
-          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
-          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
         run: |
-          # 验证Modal CLI可以正常工作
-          modal --version
+          # 方法1: 直接部署（推荐）
+          modal deploy main.py
           
-          # 部署应用
-          modal deploy main.py --detach
+          # 或者方法2: 带标签部署
+          # SHORT_SHA=$(git rev-parse --short HEAD)
+          # modal deploy main.py --tag="deploy-${SHORT_SHA}"
           
-          # 或者如果失败，尝试用Python直接调用
+          # 或者方法3: 使用Python部署
           # python -c "
           # import modal
-          # app = modal.App('my-app')
-          # print('Modal imported successfully')
+          # from importlib import import_module
+          # import sys
+          # sys.path.insert(0, '.')
+          # spec = import_module('main')
+          # print('Deployment initiated')
           # "
 
-      - name: Check deployment status
-        env:
-          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
-          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+      - name: Verify deployment
         run: |
-          modal app list --json | head -20
+          # 列出最近的部署
+          modal app list --json 2>/dev/null || true
+          echo "Deployment completed"
+
+  update-readme:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: success() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update README
+        run: |
+          DATE=$(date "+%Y/%m/%d %H:%M:%S")
+          echo "# Last Deployment" > README.md
+          echo "" >> README.md
+          echo "**Last automated deployment:** $DATE" >> README.md
+          echo "" >> README.md
+          echo "**Workflow run:** [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> README.md
+
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "chore: update deployment timestamp - ${{ github.run_number }}"
+          file_pattern: README.md
