@@ -1,4 +1,4 @@
-name: ac-on-modal
+name: Modal Deployment
 
 on:
   push:
@@ -7,59 +7,99 @@ on:
   pull_request:
     branches:
       - main
-
   schedule:
     - cron: "0 22 * * *"
-  workflow_dispatch:     # 允许手动触发
+  workflow_dispatch:
 
 jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
+      # Modal最新推荐的环境变量名
       MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+      # 或者也可能是这些名称
+      # MODAL_API_KEY: ${{ secrets.MODAL_API_KEY }}
+      # MODAL_API_SECRET: ${{ secrets.MODAL_API_SECRET }}
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0  # 获取完整历史，用于git操作
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
 
-      - name: Install build dependencies
+      - name: Install Modal CLI
         run: |
           python -m pip install --upgrade pip
-          pip install modal
+          pip install modal-client
+          # 或者使用推荐的安装方式
+          # pip install modal
 
-      - name: Run pj
+      - name: Setup Modal token
         run: |
-          modal deploy main.py --tag=`git rev-parse --short HEAD`
-          
-      - name: Renew README.md
-        run: |
-            DATE=$(date "+%Y/%m/%d %H:%M:%S")
-            echo "${DATE}" > README.md
-            git checkout --orphan tmp_work
-            git branch -d main
-            echo "DATE=${DATE}" >> $GITHUB_ENV
+          # 确保Modal认证文件存在
+          mkdir -p ~/.modal
+          if [[ -n "$MODAL_TOKEN_ID" && -n "$MODAL_TOKEN_SECRET" ]]; then
+            echo "token_id = $MODAL_TOKEN_ID" > ~/.modal.toml
+            echo "token_secret = $MODAL_TOKEN_SECRET" >> ~/.modal.toml
+          fi
 
-      - name: Upload to repository
-        uses: stefanzweifel/git-auto-commit-action@v4.16.0
+      - name: Deploy to Modal
+        run: |
+          # 使用modal deploy部署应用
+          modal deploy main.py
+          # 如果需要指定特定标签
+          # modal deploy main.py --tag=production-$(date +%Y%m%d-%H%M%S)
+
+      - name: Check deployment status
+        run: |
+          # 可选：检查部署状态
+          modal app list
+
+  update-readme:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
         with:
-          commit_message: Auto deploy by Github Actions, ${{ env.DATE }}
-          create_branch: true
-          branch: main
-          push_options: --force
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Update README with timestamp
+        run: |
+          DATE=$(date "+%Y/%m/%d %H:%M:%S")
+          echo "# Last Deployment" > README.md
+          echo "" >> README.md
+          echo "Last automated deployment: **$DATE**" >> README.md
+          echo "" >> README.md
+          echo "Workflow run: [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> README.md
+
+      - name: Commit and push changes
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "chore: update deployment timestamp - ${{ github.run_number }}"
+          branch: main
+          file_pattern: README.md
+
+  cleanup:
+    needs: [test, update-readme]
+    if: always()
+    runs-on: ubuntu-latest
+    
+    steps:
       - name: Delete old workflow runs
         uses: MajorScruffy/delete-old-workflow-runs@v0.3.0
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
         with:
           repository: ${{ github.repository }}
-          older-than-seconds: 3600
+          older-than-seconds: 2592000  # 30天
+          keep-minimum-runs: 10
