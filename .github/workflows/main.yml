@@ -10,6 +10,7 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "0 22 * * *"
+  workflow_dispatch:     # 允许手动触发
 
 jobs:
   test:
