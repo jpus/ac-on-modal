@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
   schedule:
     - cron: "0 22 * * *"
   workflow_dispatch:
@@ -14,7 +11,6 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
     env:
       MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
@@ -26,64 +22,37 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Install Modal
         run: |
           python -m pip install --upgrade pip
           pip install modal
 
-      - name: Verify Modal installation
-        run: |
-          python -c "import modal; print(f'Modal version: {modal.__version__}')"
-
       - name: Deploy to Modal
         run: |
-          # 方法1: 直接部署（推荐）
-          modal deploy main.py
-          
-          # 或者方法2: 带标签部署
-          # SHORT_SHA=$(git rev-parse --short HEAD)
-          # modal deploy main.py --tag="deploy-${SHORT_SHA}"
-          
-          # 或者方法3: 使用Python部署
-          # python -c "
-          # import modal
-          # from importlib import import_module
-          # import sys
-          # sys.path.insert(0, '.')
-          # spec = import_module('main')
-          # print('Deployment initiated')
-          # "
+          modal deploy -m main.py
 
-      - name: Verify deployment
+      - name: Renew README.md
         run: |
-          # 列出最近的部署
-          modal app list --json 2>/dev/null || true
-          echo "Deployment completed"
+            DATE=$(date "+%Y/%m/%d %H:%M:%S")
+            echo "${DATE}" > README.md
+            git checkout --orphan tmp_work
+            git branch -d main
+            echo "DATE=${DATE}" >> $GITHUB_ENV
 
-  update-readme:
-    needs: deploy
-    runs-on: ubuntu-latest
-    if: success() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
-    
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - name: Upload to repository
+        uses: stefanzweifel/git-auto-commit-action@v4.16.0
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          commit_message: Auto deploy by Github Actions, ${{ env.DATE }}
+          create_branch: true
+          branch: main
+          push_options: --force
 
-      - name: Update README
-        run: |
-          DATE=$(date "+%Y/%m/%d %H:%M:%S")
-          echo "# Last Deployment" > README.md
-          echo "" >> README.md
-          echo "**Last automated deployment:** $DATE" >> README.md
-          echo "" >> README.md
-          echo "**Workflow run:** [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> README.md
-
-      - name: Commit changes
-        uses: stefanzweifel/git-auto-commit-action@v4
+      - name: Delete old workflow runs
+        uses: MajorScruffy/delete-old-workflow-runs@v0.3.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         with:
-          commit_message: "chore: update deployment timestamp - ${{ github.run_number }}"
-          file_pattern: README.md
+          repository: ${{ github.repository }}
+          older-than-seconds: 3600
