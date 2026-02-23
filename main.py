@@ -1,6 +1,6 @@
 import modal
 
-image = modal.Image.debian_slim(python_version="3.13").apt_install("curl", "procps")
+image = modal.Image.debian_slim(python_version="3.11").apt_install("curl", "procps")
 app = modal.App.lookup("pythoncode", create_if_missing=True)
 
 with modal.enable_output():
@@ -21,3 +21,4 @@ combined_process = sandbox.exec(
 
 result = combined_process.stdout.read().strip()
 print(result)
+
