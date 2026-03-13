@@ -1,30 +1,27 @@
-name: Modal Deployment
+name: Deploy to Modal
 
 on:
-  schedule:
-    - cron: "0 22 * * *"
   workflow_dispatch:
-    
-permissions:
-  contents: write
-
+  schedule:
+    - cron: '0 22 * * *'
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 5   
+
     env:
       MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
       MODAL_CONFIG_DIR: /home/runner/.modal  # 强制写入 Modal CLI 配置目录
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Install Python
-        uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          python-version: "3.13"
+          python-version: '3.10'
 
       - name: Install Modal SDK
         run: pip install --no-cache-dir --upgrade "modal>=0.58.0"
@@ -38,30 +35,7 @@ jobs:
           echo -e "[default]" > $MODAL_CONFIG_DIR/token.toml
           echo -e "token_id = \"$MODAL_TOKEN_ID\"" >> $MODAL_CONFIG_DIR/token.toml
           echo -e "token_secret = \"$MODAL_TOKEN_SECRET\"" >> $MODAL_CONFIG_DIR/token.toml
+          
 
-      - name: Deploy to Modal
-        run: python3 main.py
-
-      - name: Renew README.md
-        run: |
-            DATE=$(date "+%Y/%m/%d %H:%M:%S")
-            echo "${DATE}" > README.md
-            git checkout --orphan tmp_work
-            git branch -d main
-            echo "DATE=${DATE}" >> $GITHUB_ENV
-
-      - name: Upload to repository
-        uses: stefanzweifel/git-auto-commit-action@v4.16.0
-        with:
-          commit_message: Auto deploy by Github Actions, ${{ env.DATE }}
-          create_branch: true
-          branch: main
-          push_options: --force
-
-      - name: Delete old workflow runs
-        uses: MajorScruffy/delete-old-workflow-runs@v0.3.0
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-          repository: ${{ github.repository }}
-          older-than-seconds: 3600
+      - name: Run app remotely
+        run: python main.py
