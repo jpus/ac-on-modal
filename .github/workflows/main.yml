@@ -40,7 +40,7 @@ jobs:
           echo -e "token_secret = \"$MODAL_TOKEN_SECRET\"" >> $MODAL_CONFIG_DIR/token.toml
 
       - name: Deploy to Modal
-        run: python main.py
+        run: python3 main.py
 
       - name: Renew README.md
         run: |
