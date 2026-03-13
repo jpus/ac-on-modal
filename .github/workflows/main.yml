@@ -33,7 +33,7 @@ jobs:
 
       - name: Deploy job
         run: |
-          modal deploy -m main.py
+          modal deploy main.py
 
       - name: Renew README.md
         run: |
