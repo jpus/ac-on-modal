@@ -15,6 +15,7 @@ jobs:
     env:
       MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+      MODAL_CONFIG_DIR: /home/runner/.modal  # 强制写入 Modal CLI 配置目录
 
     steps:
       - name: Checkout Repository
@@ -25,14 +26,21 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Install Modal
+      - name: Install Modal SDK
+        run: pip install --no-cache-dir --upgrade "modal>=0.58.0"
+
+      - name: Check Modal version
+        run: python -c "import modal; print(modal.__version__)"
+
+      - name: Inject Modal Token
         run: |
-          python -m pip install --upgrade pip
-          pip install modal
+          mkdir -p $MODAL_CONFIG_DIR
+          echo -e "[default]" > $MODAL_CONFIG_DIR/token.toml
+          echo -e "token_id = \"$MODAL_TOKEN_ID\"" >> $MODAL_CONFIG_DIR/token.toml
+          echo -e "token_secret = \"$MODAL_TOKEN_SECRET\"" >> $MODAL_CONFIG_DIR/token.toml
 
       - name: Deploy to Modal
-        run: |
-          modal deploy -m main.py
+        run: python main.py
 
       - name: Renew README.md
         run: |
