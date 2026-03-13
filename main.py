@@ -1,6 +1,6 @@
 import modal
 
-image = modal.Image.debian_slim(python_version="3.10").apt_install("curl", "procps")
+image = modal.Image.debian_slim(python_version="3.13").apt_install("curl")
 app = modal.App.lookup("pythoncode", create_if_missing=True)
 
 with modal.enable_output():
