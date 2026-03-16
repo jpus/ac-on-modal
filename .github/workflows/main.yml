@@ -45,4 +45,5 @@ jobs:
       # ---------- 再执行部署 ----------
       - name: Deploy job
         run: |
-          modal deploy main.py
+          python main.py
+          # modal deploy main.py
