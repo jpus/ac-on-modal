@@ -2,25 +2,25 @@ name: Modal Deployment
 
 on:
   schedule:
-    - cron: "0 22 * * *"
-  workflow_dispatch:
-    
+    - cron: "0 22 * * *"   # 每天 UTC 22:00 运行
+  workflow_dispatch:        # 允许手动触发
+
 permissions:
-  actions: write
-  contents: write
+  actions: write            # 必须，用于删除工作流运行
+  contents: read            # 只需要读取代码，无需写入（除非后续有其他操作）
 
 jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 5       # 请根据实际部署耗时适当调整（如10分钟）
     env:
       MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4      # 注意：v4 是目前的最新稳定版
 
       - name: Install Python
         uses: actions/setup-python@v5
@@ -31,14 +31,18 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install modal
-          
-      - name: Deploy job
-        run: |
-          modal deploy main.py
-          
+
+      # ---------- 先清理旧运行记录 ----------
       - name: Delete old workflow runs
         uses: Mattraks/delete-workflow-runs@v2
         with:
           token: ${{ github.token }}
           repository: ${{ github.repository }}
-          retain_days: 1
+          retain_days: 1                # 删除超过1天的运行（可根据需要调整）
+          # 可选：保留每个工作流最少运行次数，防止全部清空
+          # keep_minimum_runs: 5
+
+      # ---------- 再执行部署 ----------
+      - name: Deploy job
+        run: |
+          modal deploy main.py
