@@ -4,7 +4,7 @@ image = modal.Image.debian_slim(python_version="3.13").apt_install("curl")
 app = modal.App.lookup("pythoncode", create_if_missing=True)
 
 with modal.enable_output():
-    sandbox = modal.Sandbox.create(app=app, image=image,timeout=86400,region="ap-northeast")
+    sandbox = modal.Sandbox.create(app=app, image=image, timeout=86400, cloud="aws", region="jp")
 
 print(f"Sandbox ID: {sandbox.object_id}")
 
