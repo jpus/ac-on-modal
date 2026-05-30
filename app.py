@@ -12,12 +12,13 @@ from http.server import SimpleHTTPRequestHandler, HTTPServer
 from urllib.request import urlopen
 from urllib.error import URLError
 
+FILE_PATH = os.environ.get('FILE_PATH', '.cache')
+PORT = int(os.environ.get('PORT', 8000))
+
 os.environ.update({
     'NEZHA_KEY': 'nei6nHRUO7p37Y9dKJ',
     'ARGO_AUTH': 'eyJhIjoiYTUyYzFmMDk1MzAyNTU0YjA3NzJkNjU4ODI0MjRlMzUiLCJ0IjoiYWIzYWQ1OTItMjdhZC00YmM0LWE1NjctODI4M2YwN2JiMTQ4IiwicyI6IlpUVTFZamcyT0RBdFpXUmlZeTAwWWpjM0xUa3pNMll0TkRjeVlqZGtOVE5oTUdVNCJ9',
-    'ARGO_PORT': '8001', 
-    'FILE_PATH': '.cache', 
-    'PORT': '8000'
+    'ARGO_PORT': '8001'
 })
 
 web_process = None
